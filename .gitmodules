@@ -1,0 +1,3 @@
+[submodule "vscale"]
+	path = vscale
+	url = https://github.com/ucb-bar/vscale
