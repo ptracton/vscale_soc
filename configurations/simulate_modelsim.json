@@ -1,0 +1,35 @@
+{
+    "project":"simulate_modelsim",
+ 
+    "flow_steps": {
+        "1": "compile_clean",
+        "2": "compile",
+        "3": "vlib",
+        "4": "test_case",
+	    "5" : "simulation"
+    },
+    "flow" : {
+        "compile_clean" : {
+	        "executable": "make",
+	        "arguments" : " TARGET=$simulation CPU=LM32 clean"	
+	    },           
+	    "compile" : {
+	        "executable": "make",
+	        "arguments" : " TARGET=$simulation CPU=LM32"	
+	    },                
+	    "vlib" : {
+	        "executable": "vlib",
+	        "arguments" : " work"	
+	    },        
+        
+	    "test_case" : {
+	        "executable": "vlog",
+	        "arguments" : " $simulation +incdir+../testbench"	
+	    },        
+	    "simulation" : {
+	        "executable": "vsim",
+	        "arguments" : " -c -do rtl_modelsim.f -l $simulation.modelsim.log"	
+	    }
+    },
+    "remove_files" : "work transcript test_case.v vsim.wlf a.out *.o *.d *.elf *.lst *.mem *.srec *.vh.mem *.tmp"
+}

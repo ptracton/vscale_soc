@@ -1,0 +1,33 @@
+{
+    "project":"simulate_iverilog",
+    "flow_steps": {
+        "1" : "clean_up",
+        "2" : "compile_clean",
+        "3" : "compile",        
+        "4" : "simulation",
+        "5" : "run"
+    },
+    "flow" : {
+        "clean_up" : {
+            "executable" : "rm",
+            "arguments" : "-f dump.vcd a.out hack.vh"
+        },
+	    "compile_clean" : {
+	        "executable": "make",
+	        "arguments" : " TARGET=$simulation CPU=$cpu clean"	
+	    },        
+	    "compile" : {
+	        "executable": "make",
+	        "arguments" : " TARGET=$simulation CPU=$cpu"	
+	    },        
+	    "simulation" : {
+	        "executable": "iverilog",
+	        "arguments" : " -f rtl_sim.f $simulation -DICARUS -DWISHBONE_CPU_$cpu"	
+	    },
+	    "run" : {
+	        "executable" : "vvp",
+	        "arguments"  : "-l $simulation.log a.out"
+	    }
+    },
+    "remove_files": "hack.vh *.vcd a.out *.log"
+}

@@ -1,0 +1,38 @@
+{
+    "project":"simulate_iverilog",
+    "installed tools": [
+        "xilinx",
+        "altera",
+        "icarus"
+    ],
+    "flow_steps": {
+        "1" : "clean_up",
+        "2" : "compile_clean",
+        "3" : "compile",
+        "5" : "prepare",
+        "6" : "simulation"
+    },
+    "flow" : {
+        "clean_up" : {
+            "executable" : "rm",
+            "arguments" : "-f dump.vcd a.out hack.vh"
+        },
+     "compile_clean" : {
+	        "executable": "make",
+	        "arguments" : " TARGET=$simulation CPU=OR1200 clean"	
+	    },           
+	    "compile" : {
+	        "executable": "make",
+	        "arguments" : " TARGET=$simulation CPU=OR1200"	
+	    },                        
+        "prepare" : {
+            "executable" : "touch",
+            "arguments" : "cds.lib"
+        },
+        "simulation" : {
+            "executable": "ncverilog",
+            "arguments" : " -64bit -ALLOWREDEFINITION -v93 +access+rwc -clean -cdslib cds.lib -f rtl_sim.f -f $cpu.f -timescale 1ns/1ns +define+NCVERILOG +define+WISHBONE_CPU_$cpu +loadpli1=/cadtools/apps/design_compiler/prod/auxx/syn/power/vpower/lib-amd64/libvpower.so:saifpli_bootstrap $simulation -l $simulation.log"
+        }   
+    },
+    "remove_files": "INCA_libs/ cds.lib *.shm ncverilog.log"
+}

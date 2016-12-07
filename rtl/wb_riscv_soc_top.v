@@ -50,175 +50,115 @@ module wb_riscv_soc_top (/*AUTOARG*/
                         .rst(wb_rst_i),
                         .ext_interrupts(),
                         // Wishbone interface
-                        iwbm_adr_o(),
-                        iwbm_stb_o(),
-                        iwbm_cyc_o(),
-                        iwbm_sel_o(),
-                        iwbm_we_o(),
-                        iwbm_cti_o(),
-                        iwbm_bte_o(),
-                        iwbm_dat_o(),
-                        iwbm_err_i(),
-                        iwbm_ack_i(),
-                        iwbm_dat_i(),
-                        iwbm_rty_i(),
-   
-                        dwbm_adr_o(),
-                        dwbm_stb_o(),
-                        dwbm_cyc_o(),
-                        dwbm_sel_o(),
-                        dwbm_we_o(),
-                        dwbm_cti_o(),
-                        dwbm_bte_o(),
-                        dwbm_dat_o(),
-                        dwbm_err_i(),
-                        dwbm_ack_i(),
-                        dwbm_dat_i(),
-                        dwbm_rty_i()
+                        iwbm_adr_o(wb_m2s_iwmb_adr),
+                        iwbm_stb_o(wb_m2s_iwmb_stb),
+                        iwbm_cyc_o(wb_m2s_iwmb_cyc),
+                        iwbm_sel_o(wb_m2s_iwmb_sel),
+                        iwbm_we_o(wb_m2s_iwmb_we),
+                        iwbm_cti_o(wb_m2s_iwmb_cti),
+                        iwbm_bte_o(wb_m2s_iwmb_bte),
+                        iwbm_dat_o(wb_m2s_iwmb_dat),
+                        iwbm_err_i(wb_s2m_iwmb_err),
+                        iwbm_ack_i(wb_s2m_iwmb_ack),
+                        iwbm_dat_i(wb_s2m_iwmb_dat),
+                        iwbm_rty_i(wb_s2m_iwmb_rty),
+
+                        dwbm_adr_o(wb_m2s_dwmb_adr),
+                        dwbm_stb_o(wb_m2s_dwmb_stb),
+                        dwbm_cyc_o(wb_m2s_dwmb_cyc),
+                        dwbm_sel_o(wb_m2s_dwmb_sel),
+                        dwbm_we_o(wb_m2s_dwmb_we),
+                        dwbm_cti_o(wb_m2s_dwmb_cti),
+                        dwbm_bte_o(wb_m2s_dwmb_bte),
+                        dwbm_dat_o(wb_m2s_dwmb_dat),
+                        dwbm_err_i(wb_s2m_dwmb_err),
+                        dwbm_ack_i(wb_s2m_dwmb_ack),
+                        dwbm_dat_i(wb_s2m_dwmb_dat),
+                        dwbm_rty_i(wb_s2m_dwmb_rty)                        
                         );
 
-   //
-   // Bus Matrix
-   //
-   wb_intercon bus_matrix
-     (         wb_clk_i(),
-               wb_rst_i(),
-               wb_iwmb_adr_i(),
-               wb_iwmb_dat_i(),
-               wb_iwmb_sel_i(),
-               wb_iwmb_we_i(),
-               wb_iwmb_cyc_i(),
-               wb_iwmb_stb_i(),
-               wb_iwmb_cti_i(),
-               wb_iwmb_bte_i(),
-               wb_iwmb_dat_o(),
-               wb_iwmb_ack_o(),
-               wb_iwmb_err_o(),
-               wb_iwmb_rty_o(),
-               wb_dwmb_adr_i(),
-               wb_dwmb_dat_i(),
-               wb_dwmb_sel_i(),
-               wb_dwmb_we_i(),
-               wb_dwmb_cyc_i(),
-               wb_dwmb_stb_i(),
-               wb_dwmb_cti_i(),
-               wb_dwmb_bte_i(),
-               wb_dwmb_dat_o(),
-               wb_dwmb_ack_o(),
-               wb_dwmb_err_o(),
-               wb_dwmb_rty_o(),
-               wb_uart_adr_o(),
-               wb_uart_dat_o(),
-               wb_uart_sel_o(),
-               wb_uart_we_o(),
-               wb_uart_cyc_o(),
-               wb_uart_stb_o(),
-               wb_uart_cti_o(),
-               wb_uart_bte_o(),
-               wb_uart_dat_i(),
-               wb_uart_ack_i(),
-               wb_uart_err_i(),
-               wb_uart_rty_i(),
-               wb_ram_adr_o(),
-               wb_ram_dat_o(),
-               wb_ram_sel_o(),
-               wb_ram_we_o(),
-               wb_ram_cyc_o(),
-               wb_ram_stb_o(),
-               wb_ram_cti_o(),
-               wb_ram_bte_o(),
-               wb_ram_dat_i(),
-               wb_ram_ack_i(),
-               wb_ram_err_i(),
-               wb_ram_rty_i(),
-               wb_rom_adr_o(),
-               wb_rom_dat_o(),
-               wb_rom_sel_o(),
-               wb_rom_we_o(),
-               wb_rom_cyc_o(),
-               wb_rom_stb_o(),
-               wb_rom_cti_o(),
-               wb_rom_bte_o(),
-               wb_rom_dat_i(),
-               wb_rom_ack_i(),
-               wb_rom_err_i(),
-               wb_rom_rty_i()
-               );   
+  
 
    //
    // System RAM
    //
+   assign wb_s2m_ram_rty = 0;   
    wb_ram ram
      #(//Wishbone parameters
        .dw(32),
        //Memory parameters
        .depth(1024),
        .aw($clog2(depth)),
-       .memfile(""))
-   (	   .wb_clk_i(wb_clk_i),
-           .wb_rst_i(wb_rst_i),
-           
-           .wb_adr_i(),
-           .wb_dat_i(),
-           .wb_sel_i(),
-           .wb_we_i(),
-           .wb_bte_i(),
-           .wb_cti_i(),
-           .wb_cyc_i(),
-           .wb_stb_i(),
-           
-           .wb_ack_o(),
-           .wb_err_o(),
-           .wb_dat_o()
-           );
+       .memfile("")) (
+                      
+                      .wb_clk_i(wb_clk_i),
+                      .wb_rst_i(wb_rst_i),
+                      
+                      .wb_adr_i(wb_m2s_ram_adr),
+                      .wb_dat_i(wb_m2s_ram_dat),
+                      .wb_sel_i(wb_m2s_ram_sel),
+                      .wb_we_i(wb_m2s_ram_we),
+                      .wb_bte_i(wb_m2s_ram_bte),
+                      .wb_cti_i(wb_m2s_ram_cti),
+                      .wb_cyc_i(wb_m2s_ram_cyc),
+                      .wb_stb_i(wb_m2s_ram_stb),
+                      
+                      .wb_ack_o(wb_s2m_ram_ack),
+                      .wb_err_o(wb_s2m_ram_err),
+                      .wb_dat_o(wb_s2m_ram_dat)
+                      );
    
 
    //
    // System ROM
    //
+   assign wb_s2m_rom_rty = 0;  
    wb_ram rom
      #(//Wishbone parameters
        .dw(32),
        //Memory parameters
        .depth(4096),
        .aw($clog2(depth)),
-       .memfile(ROM_FILE))
-   (	   .wb_clk_i(wb_clk_i),
-           .wb_rst_i(wb_rst_i),
-           
-           .wb_adr_i(),
-           .wb_dat_i(),
-           .wb_sel_i(),
-           .wb_we_i(),
-           .wb_bte_i(),
-           .wb_cti_i(),
-           .wb_cyc_i(),
-           .wb_stb_i(),
-           
-           .wb_ack_o(),
-           .wb_err_o(),
-           .wb_dat_o()           
-           );
+       .memfile(ROM_FILE)) (
+                            .wb_clk_i(wb_clk_i),
+                            .wb_rst_i(wb_rst_i),
+                            
+                            .wb_adr_i(wb_m2s_rom_adr),
+                            .wb_dat_i(wb_m2s_rom_dat),
+                            .wb_sel_i(wb_m2s_rom_sel),
+                            .wb_we_i(wb_m2s_rom_we),
+                            .wb_bte_i(wb_m2s_rom_bte),
+                            .wb_cti_i(wb_m2s_rom_cti),
+                            .wb_cyc_i(wb_m2s_rom_cyc),
+                            .wb_stb_i(wb_m2s_rom_stb),
+                            
+                            .wb_ack_o(wb_s2m_rom_ack),
+                            .wb_err_o(wb_s2m_rom_err),
+                            .wb_dat_o(wb_s2m_rom_dat)
+                            );
 
 
    //
    // UART 
    //
+   assign wb_s2m_uart_err = 0;
+   assign wb_s2m_uart_rty = 0;
+   
    uart_wb uart(
                 .clk(wb_clk_i), 
                 .wb_rst_i(wb_rst_i), 
-	            .wb_we_i(), 
-                .wb_stb_i(), 
-                .wb_cyc_i(), 
-                .wb_ack_o(), 
-                .wb_adr_i(),
+	            .wb_we_i(wb_m2s_uart_we), 
+                .wb_stb_i(wb_m2s_uart_stb), 
+                .wb_cyc_i(wb_m2s_uart_cyc), 
+                .wb_ack_o(wb_s2m_uart_ack), 
+                .wb_adr_i(wb_m2s_uart_adr),
 	            .wb_adr_int(), 
-                .wb_dat_i(), 
-                .wb_dat_o(), 
-                .wb_dat8_i(), 
+                .wb_dat_i(wb_m2s_uart_dat), 
+                .wb_dat_o(wb_s2m_uart_dat), 
+                .wb_dat8_i(wb_m2s_uart_dat[7:0]), 
                 .wb_dat8_o(), 
                 .wb_dat32_o(), 
-                .wb_sel_i(),
+                .wb_sel_i(wb_m2s_uart_sel),
 	            .we_o(), 
                 .re_o() // Write and read enable output for the core
                 );

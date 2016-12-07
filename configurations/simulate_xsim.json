@@ -1,0 +1,47 @@
+{
+    "project":"simulate_isim",
+    "installed tools": [
+        "xilinx",
+        "altera",
+        "icarus"
+    ],
+    "flow_steps": {
+	    "1" : "clean",
+        "4" : "move",
+        
+        "6" : "test_case",
+        "7" : "elaborate",
+        "8" : "xsimulation"
+    },
+    "flow" : {
+	      "clean" :{
+	          "executable" : "rm",
+	          "arguments" : "-rf xsim.dir xvlog* xelab.pb webtalk* xsim.dir/ xvlog.pb *.wdb"
+	      },    
+        "move" : {
+            "executable" : "mv",
+            "arguments" : " $application.v boot_rom.v"
+        },         
+	      "parse" :{
+	          "executable" : "xvlog",
+            "arguments" : "-prj rtl_xsim.prj --log xvlog_$simulation.log"
+	      },
+	      "test_case" :{
+	          "executable" : "xvlog",
+            "arguments" : " $simulation -i ../testbench/ -i ../behavioral/adxl362/ --log vlog_test_case_$simulation.log"
+	      },        
+	      "elaborate" :{
+	          "executable" : "xelab",
+            "arguments" : "-prj rtl_xsim.prj -debug all  --timescale 1ns/1ns -L unisims_ver -L unimacro_ver work.testbench"
+	      },        
+	      "xsimulation" : {
+	          "executable": "xsim",
+	          "arguments" : " work.testbench -tclbatch simulation.tcl"	
+	      },
+	      "run" : {
+	          "executable" : "./a.out",
+	          "arguments"  : " "
+	      }
+    },
+    "remove_files" : "hack.vh webtalk* work.testbench.wdb xsim* xvlog* xelab*"
+}
