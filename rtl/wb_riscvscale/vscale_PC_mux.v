@@ -22,7 +22,6 @@ module vscale_PC_mux(
    always @(*) begin
       case (PC_src_sel)
         `PC_JAL_TARGET : begin
-           //$display("jal_offset = 0x%x\n", jal_offset);
            base = PC_DX;
            offset = jal_offset;
         end
@@ -31,25 +30,24 @@ module vscale_PC_mux(
            offset = jalr_offset;
         end
         `PC_BRANCH_TARGET : begin
-           //$display("BRANCH_TARGET: PC= 0x%x imm_b = 0x%x\n", PC_DX, imm_b);
            base = PC_DX;
            offset = imm_b;
         end
         `PC_REPLAY : begin
            base = PC_IF;
-           offset = 31'h0;
+           offset = `XPR_LEN'h0;
         end
         `PC_HANDLER : begin
            base = handler_PC;
-           offset = 31'h0;
+           offset = `XPR_LEN'h0;
         end
         `PC_EPC : begin
            base = epc;
-           offset = 31'h0;
+           offset = `XPR_LEN'h0;
         end
         default : begin
            base = PC_IF;
-           offset = 31'h4;
+           offset = `XPR_LEN'h4;
         end
       endcase // case (PC_src_sel)
    end // always @ (*)

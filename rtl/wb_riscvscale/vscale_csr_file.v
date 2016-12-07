@@ -1,37 +1,40 @@
 `include "rv32_opcodes.vh"
 `include "vscale_csr_addr_map.vh"
 `include "vscale_ctrl_constants.vh"
+`include "vscale_platform_constants.vh"
 
 module vscale_csr_file(
-                       input                        clk,
-                       input                        reset,
+                       input 			    clk,
+		       input [`N_EXT_INTS-1:0] 	    ext_interrupts, 
+                       input 			    reset,
                        input [`CSR_ADDR_WIDTH-1:0]  addr,
                        input [`CSR_CMD_WIDTH-1:0]   cmd,
-                       input [`XPR_LEN-1:0]         wdata,
+                       input [`XPR_LEN-1:0] 	    wdata,
                        output wire [`PRV_WIDTH-1:0] prv,
-                       output                       illegal_access,
+                       output 			    illegal_access,
                        output reg [`XPR_LEN-1:0]    rdata,
-                       input                        retire,
-                       input                        exception,
+                       input 			    retire,
+                       input 			    exception,
                        input [`ECODE_WIDTH-1:0]     exception_code,
-                       input                        eret,
-                       input [`XPR_LEN-1:0]         exception_load_addr,
-                       input [`XPR_LEN-1:0]         exception_PC,
-                       output [`XPR_LEN-1:0]        handler_PC,
-                       output [`XPR_LEN-1:0]        epc
-                       /*input                        htif_reset,
-                       input                        htif_pcr_req_valid,
-                       output                       htif_pcr_req_ready,
-                       input                        htif_pcr_req_rw,
+                       input 			    eret,
+                       input [`XPR_LEN-1:0] 	    exception_load_addr,
+                       input [`XPR_LEN-1:0] 	    exception_PC,
+                       output [`XPR_LEN-1:0] 	    handler_PC,
+                       output [`XPR_LEN-1:0] 	    epc,
+		       output 			    interrupt_pending,
+		       output reg 		    interrupt_taken,
+                       input 			    htif_reset,
+                       input 			    htif_pcr_req_valid,
+                       output 			    htif_pcr_req_ready,
+                       input 			    htif_pcr_req_rw,
                        input [`CSR_ADDR_WIDTH-1:0]  htif_pcr_req_addr,
                        input [`HTIF_PCR_WIDTH-1:0]  htif_pcr_req_data,
-                       output                       htif_pcr_resp_valid,
-                       input                        htif_pcr_resp_ready,
+                       output 			    htif_pcr_resp_valid,
+                       input 			    htif_pcr_resp_ready,
                        output [`HTIF_PCR_WIDTH-1:0] htif_pcr_resp_data
-							  */
                        );
 
-   /*localparam HTIF_STATE_IDLE = 0;
+   localparam HTIF_STATE_IDLE = 0;
    localparam HTIF_STATE_WAIT = 1;
 
    reg [`HTIF_PCR_WIDTH-1:0]                        htif_rdata;
@@ -39,15 +42,13 @@ module vscale_csr_file(
    reg                                              htif_state;
    reg                                              htif_fire;
    reg                                              next_htif_state;
-	*/
 
    reg [`CSR_COUNTER_WIDTH-1:0]                     cycle_full;
    reg [`CSR_COUNTER_WIDTH-1:0]                     time_full;
    reg [`CSR_COUNTER_WIDTH-1:0]                     instret_full;
    reg [5:0]                                        priv_stack;
    reg [`XPR_LEN-1:0]                               mtvec;
-   reg                                              mtie;
-   reg                                              msie;
+   reg [`XPR_LEN-1:0] 				    mie;
    reg                                              mtip;
    reg                                              msip;
    reg [`XPR_LEN-1:0]                               mtimecmp;
@@ -65,7 +66,6 @@ module vscale_csr_file(
    wire [`XPR_LEN-1:0]                              mhartid;
    wire [`XPR_LEN-1:0]                              mstatus;
    wire [`XPR_LEN-1:0]                              mtdeleg;
-   wire [`XPR_LEN-1:0]                              mie;
    wire [`XPR_LEN-1:0]                              mip;
    wire [`XPR_LEN-1:0]                              mcause;
 
@@ -83,7 +83,6 @@ module vscale_csr_file(
    reg [`XPR_LEN-1:0]                               wdata_internal;
    wire                                             uinterrupt;
    wire                                             minterrupt;
-   reg                                              interrupt_taken;
    reg [`ECODE_WIDTH-1:0]                           interrupt_code;
 
    wire                                             code_imem;
@@ -95,8 +94,7 @@ module vscale_csr_file(
    assign prv = priv_stack[2:1];
    assign ie = priv_stack[0];
 
-   //assign host_wen = (htif_state == HTIF_STATE_IDLE) && htif_pcr_req_valid && htif_pcr_req_rw;
-	assign host_en = 1'b0;
+   assign host_wen = (htif_state == HTIF_STATE_IDLE) && htif_pcr_req_valid && htif_pcr_req_rw;
    assign system_en = cmd[2];
    assign system_wen = cmd[1] || cmd[0];
    assign wen_internal = host_wen || system_wen;
@@ -107,10 +105,10 @@ module vscale_csr_file(
    assign illegal_access = illegal_region || (system_en && !defined);
 
    always @(*) begin
-      /*if (host_wen) begin
+      wdata_internal = wdata;
+      if (host_wen) begin
          wdata_internal = htif_pcr_req_data;
-			*/
-       if (system_wen) begin
+      end else if (system_wen) begin
          case (cmd)
            `CSR_SET : wdata_internal = rdata | wdata;
            `CSR_CLEAR : wdata_internal = rdata & ~wdata;
@@ -120,7 +118,8 @@ module vscale_csr_file(
    end // always @ begin
 
    assign uinterrupt = 1'b0;
-   assign minterrupt = (mtie && mtimer_expired);
+   assign minterrupt = |(mie & mip);
+   assign interrupt_pending = |mip;
 
    always @(*) begin
       interrupt_code = `ICODE_TIMER;
@@ -131,7 +130,6 @@ module vscale_csr_file(
       endcase // case (prv)
    end
 
-	/*
    always @(posedge clk) begin
       if (htif_reset)
         htif_state <= HTIF_STATE_IDLE;
@@ -140,9 +138,7 @@ module vscale_csr_file(
       if (htif_fire)
         htif_resp_data <= htif_rdata;
    end
-	*/
-	
-	/*
+
    always @(*) begin
       htif_fire = 1'b0;
       next_htif_state = htif_state;
@@ -164,8 +160,7 @@ module vscale_csr_file(
    assign htif_pcr_req_ready = (htif_state == HTIF_STATE_IDLE);
    assign htif_pcr_resp_valid = (htif_state == HTIF_STATE_WAIT);
    assign htif_pcr_resp_data = htif_resp_data;
-	*/
-	
+
    assign mcpuid = (1 << 20) | (1 << 8); // 'I' and 'U' bits set
    assign mimpid = 32'h8000;
    assign mhartid = 0;
@@ -207,22 +202,21 @@ module vscale_csr_file(
          end
       end // else: !if(reset)
    end // always @ (posedge clk)
-   assign mip = {mtip,3'b0,msip,3'b0};
+   assign mip = {ext_interrupts,mtip,3'b0,msip,3'b0};
 
 
    always @(posedge clk) begin
       if (reset) begin
-         mtie <= 0;
-         msie <= 0;
+         mie <= 0;
       end else if (wen_internal && addr == `CSR_ADDR_MIE) begin
-         mtie <= wdata_internal[7];
-         msie <= wdata_internal[3];
+	 mie <= wdata_internal;
       end
    end // always @ (posedge clk)
-   assign mie = {mtie,3'b0,msie,3'b0};
 
    always @(posedge clk) begin
-      if (exception || interrupt_taken)
+      if (interrupt_taken)
+	mepc <= (exception_PC & {{30{1'b1}},2'b0}) + `XPR_LEN'h4;
+      if (exception)
         mepc <= exception_PC & {{30{1'b1}},2'b0};
       if (wen_internal && addr == `CSR_ADDR_MEPC)
         mepc <= wdata_internal & {{30{1'b1}},2'b0};
@@ -257,7 +251,6 @@ module vscale_csr_file(
         mbadaddr <= wdata_internal;
    end
 
-	/*
    always @(*) begin
       case (htif_pcr_req_addr)
         `CSR_ADDR_TO_HOST : htif_rdata = to_host;
@@ -265,8 +258,7 @@ module vscale_csr_file(
         default : htif_rdata = 0;
       endcase // case (htif_pcr_req_addr)
    end // always @ begin
-	*/
-	
+
    always @(*) begin
       case (addr)
         `CSR_ADDR_CYCLE     : begin rdata = cycle_full[0+:`XPR_LEN]; defined = 1'b1; end
@@ -313,6 +305,8 @@ module vscale_csr_file(
          to_host <= 0;
          from_host <= 0;
          mtvec <= 'h100;
+         mtimecmp <= 0;
+         mscratch <= 0;
       end else begin
          cycle_full <= cycle_full + 1;
          time_full <= time_full + 1;
@@ -353,10 +347,9 @@ module vscale_csr_file(
               default : ;
             endcase // case (addr)
          end // if (wen_internal)
-         /*if (htif_fire && htif_pcr_req_addr == `CSR_ADDR_TO_HOST && !system_wen) begin
+         if (htif_fire && htif_pcr_req_addr == `CSR_ADDR_TO_HOST && !system_wen) begin
             to_host <= 0;
          end
-			*/
       end // else: !if(reset)
    end // always @ (posedge clk)
 

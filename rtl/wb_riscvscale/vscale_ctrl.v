@@ -33,9 +33,11 @@ module vscale_ctrl(
                    output reg [`MD_OUT_SEL_WIDTH-1:0] md_req_out_sel,
                    input                              md_resp_valid,
                    output wire                        eret,
-                   output reg [`CSR_CMD_WIDTH-1:0]    csr_cmd,
+                   output [`CSR_CMD_WIDTH-1:0]        csr_cmd,
                    output reg                         csr_imm_sel,
                    input                              illegal_csr_access,
+		   input                              interrupt_pending,
+		   input                              interrupt_taken,
                    output wire                        wr_reg_WB,
                    output reg [`REG_ADDR_WIDTH-1:0]   reg_to_wr_WB,
                    output reg [`WB_SRC_SEL_WIDTH-1:0] wb_src_sel_WB,
@@ -47,9 +49,7 @@ module vscale_ctrl(
                    output wire                        kill_WB,
                    output wire                        exception_WB,
                    output wire [`ECODE_WIDTH-1:0]     exception_code_WB,
-                   output wire                        retire_WB,
-
-                   output wire                        replay_IF_out
+                   output wire                        retire_WB
                    );
 
    // IF stage ctrl pipeline registers
@@ -96,7 +96,10 @@ module vscale_ctrl(
    wire                                               killed_DX;
    reg                                                uses_md_unkilled;
    wire                                               uses_md;
-
+   reg 						      wfi_unkilled_DX;
+   wire 					      wfi_DX;
+   reg [`CSR_CMD_WIDTH-1:0]                           csr_cmd_unkilled;
+   
    // WB stage ctrl pipeline registers
    reg                                                wr_reg_unkilled_WB;
    reg                                                had_ex_WB;
@@ -105,7 +108,8 @@ module vscale_ctrl(
    reg                                                dmem_en_WB;
    reg                                                prev_killed_WB;
    reg                                                uses_md_WB;
-
+   reg 						      wfi_unkilled_WB;
+   
    // WB stage ctrl signals
    wire                                               ex_WB;
    reg [`ECODE_WIDTH-1:0]                             ex_code_WB;
@@ -113,7 +117,8 @@ module vscale_ctrl(
    wire                                               exception = ex_WB;
    wire                                               killed_WB;
    wire                                               load_in_WB;
-
+   wire 					      active_wfi_WB;
+   
    // Hazard signals
    wire                                               load_use;
    reg                                                uses_rs1;
@@ -124,8 +129,6 @@ module vscale_ctrl(
 
    // IF stage ctrl
 
-   assign replay_IF_out = replay_IF;
-
    always @(posedge clk) begin
       if (reset) begin
          replay_IF <= 1'b1;
@@ -134,8 +137,10 @@ module vscale_ctrl(
       end
    end
 
-   assign kill_IF = stall_IF || ex_IF || ex_DX || ex_WB || redirect || replay_IF;
-   assign stall_IF = ((imem_wait && !redirect) || stall_DX) && !exception;
+   // interrupts kill IF, DX instructions -- WB may commit
+   assign kill_IF = stall_IF || ex_IF || ex_DX || ex_WB || redirect || replay_IF || interrupt_taken;
+   assign stall_IF = stall_DX ||
+                     ((imem_wait && !redirect) && !(ex_WB || interrupt_taken));
    assign ex_IF = imem_badmem_e && !imem_wait && !redirect && !replay_IF;
 
    // DX stage ctrl
@@ -150,11 +155,18 @@ module vscale_ctrl(
       end
    end
 
-   assign kill_DX = stall_DX || ex_DX || ex_WB;
-   assign stall_DX = stall_WB || load_use || raw_on_busy_md
-                     || (fence_i && store_in_WB) || (uses_md && !md_req_ready);
+   // interrupts kill IF, DX instructions -- WB may commit
+   // Exceptions never show up falsely due to hazards -- don't get exceptions on stall
+   assign kill_DX = stall_DX || ex_DX || ex_WB || interrupt_taken;
+   assign stall_DX = stall_WB ||
+                     (( // internal hazards
+                        load_use ||
+                        raw_on_busy_md ||
+                        (fence_i && store_in_WB) ||
+                        (uses_md_unkilled && !md_req_ready)
+                        ) && !(ex_DX || ex_WB || interrupt_taken));
    assign new_ex_DX = ebreak || ecall || illegal_instruction || illegal_csr_access;
-   assign ex_DX = had_ex_DX || ((new_ex_DX) && !stall_DX); // TODO: add causes
+   assign ex_DX = had_ex_DX || new_ex_DX; // TODO: add causes
    assign killed_DX = prev_killed_DX || kill_DX;
 
    always @(*) begin
@@ -189,7 +201,7 @@ module vscale_ctrl(
 
    always @(*) begin
       illegal_instruction = 1'b0;
-      csr_cmd = `CSR_IDLE;
+      csr_cmd_unkilled = `CSR_IDLE;
       csr_imm_sel = funct3[2];
       ecall = 1'b0;
       ebreak = 1'b0;
@@ -209,6 +221,7 @@ module vscale_ctrl(
       wr_reg_unkilled_DX = 1'b0;
       wb_src_sel_DX = `WB_SRC_ALU;
       uses_md_unkilled = 1'b0;
+      wfi_unkilled_DX = 1'b0;
       case (opcode)
         `RV32_LOAD : begin
            dmem_en_unkilled = 1'b1;
@@ -295,16 +308,17 @@ module vscale_ctrl(
                         else
                           eret_unkilled = 1'b1;
                      end
+		     `RV32_FUNCT12_WFI : wfi_unkilled_DX = 1'b1;
                      default : illegal_instruction = 1'b1;
                    endcase // case (funct12)
                 end // if ((rs1_addr == 0) && (reg_to_wr_DX == 0))
              end // case: `RV32_FUNCT3_PRIV
-             `RV32_FUNCT3_CSRRW : csr_cmd = (rs1_addr == 0) ? `CSR_READ : `CSR_WRITE;
-             `RV32_FUNCT3_CSRRS : csr_cmd = (rs1_addr == 0) ? `CSR_READ : `CSR_SET;
-             `RV32_FUNCT3_CSRRC : csr_cmd = (rs1_addr == 0) ? `CSR_READ : `CSR_CLEAR;
-             `RV32_FUNCT3_CSRRWI : csr_cmd = (rs1_addr == 0) ? `CSR_READ : `CSR_WRITE;
-             `RV32_FUNCT3_CSRRSI : csr_cmd = (rs1_addr == 0) ? `CSR_READ : `CSR_SET;
-             `RV32_FUNCT3_CSRRCI : csr_cmd = (rs1_addr == 0) ? `CSR_READ : `CSR_CLEAR;
+             `RV32_FUNCT3_CSRRW : csr_cmd_unkilled = (rs1_addr == 0) ? `CSR_READ : `CSR_WRITE;
+             `RV32_FUNCT3_CSRRS : csr_cmd_unkilled = (rs1_addr == 0) ? `CSR_READ : `CSR_SET;
+             `RV32_FUNCT3_CSRRC : csr_cmd_unkilled = (rs1_addr == 0) ? `CSR_READ : `CSR_CLEAR;
+             `RV32_FUNCT3_CSRRWI : csr_cmd_unkilled = (rs1_addr == 0) ? `CSR_READ : `CSR_WRITE;
+             `RV32_FUNCT3_CSRRSI : csr_cmd_unkilled = (rs1_addr == 0) ? `CSR_READ : `CSR_SET;
+             `RV32_FUNCT3_CSRRCI : csr_cmd_unkilled = (rs1_addr == 0) ? `CSR_READ : `CSR_CLEAR;
              default : illegal_instruction = 1'b1;
            endcase // case (funct3)
         end
@@ -394,11 +408,12 @@ module vscale_ctrl(
    assign dmem_wen = dmem_wen_unkilled && !kill_DX;
    assign wr_reg_DX = wr_reg_unkilled_DX && !kill_DX;
    assign uses_md = uses_md_unkilled && !kill_DX;
-
+   assign wfi_DX = wfi_unkilled_DX && !kill_DX;
+   assign csr_cmd = (kill_DX) ? `CSR_IDLE : csr_cmd_unkilled;
    assign redirect = branch_taken || jal || jalr || eret;
 
    always @(*) begin
-      if (exception) begin
+      if (exception || interrupt_taken) begin
          PC_src_sel = `PC_HANDLER;
       end else if (replay_IF || (stall_IF && !imem_wait)) begin
          PC_src_sel = `PC_REPLAY;
@@ -425,6 +440,7 @@ module vscale_ctrl(
          store_in_WB <= 0;
          dmem_en_WB <= 0;
          uses_md_WB <= 0;
+	 wfi_unkilled_WB <= 0;
       end else if (!stall_WB) begin
          prev_killed_WB <= killed_DX;
          had_ex_WB <= ex_DX;
@@ -435,12 +451,18 @@ module vscale_ctrl(
          store_in_WB <= dmem_wen;
          dmem_en_WB <= dmem_en;
          uses_md_WB <= uses_md;
+	 wfi_unkilled_WB <= wfi_DX;
       end
    end
 
+   // WFI handling
+   // can't be killed while in WB stage
+   assign active_wfi_WB = !prev_killed_WB && wfi_unkilled_WB 
+			  && !(interrupt_taken || interrupt_pending);
+
    assign kill_WB = stall_WB || ex_WB;
-   assign stall_WB = (dmem_wait && dmem_en_WB) || (uses_md_WB && !md_resp_valid);
-   assign dmem_access_exception = dmem_badmem_e && !stall_WB;
+   assign stall_WB = ((dmem_wait && dmem_en_WB) || (uses_md_WB && !md_resp_valid) || active_wfi_WB) && !exception;
+   assign dmem_access_exception = dmem_badmem_e;
    assign ex_WB = had_ex_WB || dmem_access_exception;
    assign killed_WB = prev_killed_WB || kill_WB;
 

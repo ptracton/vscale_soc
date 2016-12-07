@@ -89,3 +89,9 @@ ENV/
 .ropeproject
 
 *~
+*.d
+*.o
+*.a
+dep/
+objecs/
+library/

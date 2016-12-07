@@ -1,12 +1,6 @@
 `include "vscale_md_constants.vh"
 `include "vscale_ctrl_constants.vh"
-
-`define INST_WIDTH     32
-`define REG_ADDR_WIDTH  5
-`define XPR_LEN        32
-`define DOUBLE_XPR_LEN 64
-`define LOG2_XPR_LEN    5
-`define SHAMT_WIDTH     5
+`include "rv32_opcodes.vh"
 
 module vscale_mul_div(
                       input                         clk,

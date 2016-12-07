@@ -3,23 +3,33 @@
 `include "rv32_opcodes.vh"
 `include "vscale_csr_addr_map.vh"
 `include "vscale_md_constants.vh"
+`include "vscale_platform_constants.vh"
 
 module vscale_pipeline(
-                       input                        clk,
-                       input                        reset,
-                       input                        imem_wait,
-                       output [`XPR_LEN-1:0]        imem_addr,
-                       input [`XPR_LEN-1:0]         imem_rdata,
-                       input                        imem_badmem_e,
-                       input                        dmem_wait,
-                       output                       dmem_en,
-                       output                       dmem_wen,
+                       input 			    clk,
+		       input [`N_EXT_INTS-1:0] 	    ext_interrupts, 
+                       input 			    reset,
+                       input 			    imem_wait,
+                       output [`XPR_LEN-1:0] 	    imem_addr,
+                       input [`XPR_LEN-1:0] 	    imem_rdata,
+                       input 			    imem_badmem_e,
+                       input 			    dmem_wait,
+                       output 			    dmem_en,
+                       output 			    dmem_wen,
                        output [`MEM_TYPE_WIDTH-1:0] dmem_size,
-                       output [`XPR_LEN-1:0]        dmem_addr,
-                       output [`XPR_LEN-1:0]        dmem_wdata_delayed,
-                       input [`XPR_LEN-1:0]         dmem_rdata,
-                       input                        dmem_badmem_e,
-                       output wire                  replay_IF_out
+                       output [`XPR_LEN-1:0] 	    dmem_addr,
+                       output [`XPR_LEN-1:0] 	    dmem_wdata_delayed,
+                       input [`XPR_LEN-1:0] 	    dmem_rdata,
+                       input 			    dmem_badmem_e,
+                       input 			    htif_reset,
+                       input 			    htif_pcr_req_valid,
+                       output 			    htif_pcr_req_ready,
+                       input 			    htif_pcr_req_rw,
+                       input [`CSR_ADDR_WIDTH-1:0]  htif_pcr_req_addr,
+                       input [`HTIF_PCR_WIDTH-1:0]  htif_pcr_req_data,
+                       output 			    htif_pcr_resp_valid,
+                       input 			    htif_pcr_resp_ready,
+                       output [`HTIF_PCR_WIDTH-1:0] htif_pcr_resp_data
                        );
 
    function [`XPR_LEN-1:0] store_data;
@@ -43,7 +53,7 @@ module vscale_pipeline(
       reg [`XPR_LEN-1:0]                        b_extend;
       reg [`XPR_LEN-1:0]                        h_extend;
       begin
-         shifted_data = (!addr[31])? (data >> {addr[1:0],3'b0}) : data;
+         shifted_data = data >> {addr[1:0],3'b0};
          b_extend = {{24{shifted_data[7]}},8'b0};
          h_extend = {{16{shifted_data[15]}},16'b0};
          case (mem_type)
@@ -120,6 +130,8 @@ module vscale_pipeline(
    wire                                         csr_imm_sel;
    wire [`PRV_WIDTH-1:0]                        prv;
    wire                                         illegal_csr_access;
+   wire 					interrupt_pending;
+   wire 					interrupt_taken;
    wire [`XPR_LEN-1:0]                          csr_wdata;
    wire [`XPR_LEN-1:0]                          csr_rdata;
    wire                                         retire_WB;
@@ -171,14 +183,12 @@ module vscale_pipeline(
                     .csr_cmd(csr_cmd),
                     .csr_imm_sel(csr_imm_sel),
                     .illegal_csr_access(illegal_csr_access),
+		    .interrupt_pending(interrupt_pending),
+		    .interrupt_taken(interrupt_taken),
                     .prv(prv),
-                    .eret(eret),
-
-                    .replay_IF_out(replay_IF_out)
+                    .eret(eret)
                     );
 
-
-   assign kill_IF_wb = kill_IF;
 
    vscale_PC_mux PCmux(
                        .PC_src_sel(PC_src_sel),
@@ -195,7 +205,7 @@ module vscale_pipeline(
 
    always @(posedge clk) begin
       if (reset) begin
-         PC_IF <= `XPR_LEN'hf0000000;
+         PC_IF <= `XPR_LEN'h200;
       end else if (~stall_IF) begin
          PC_IF <= PC_PIF;
       end
@@ -328,6 +338,7 @@ module vscale_pipeline(
 
    vscale_csr_file csr(
                        .clk(clk),
+		       .ext_interrupts(ext_interrupts),
                        .reset(reset),
                        .addr(csr_addr),
                        .cmd(csr_cmd),
@@ -342,8 +353,10 @@ module vscale_pipeline(
                        .exception_PC(PC_WB),
                        .epc(epc),
                        .eret(eret),
-                       .handler_PC(handler_PC)
-                       /*.htif_reset(htif_reset),
+                       .handler_PC(handler_PC),
+		       .interrupt_pending(interrupt_pending),
+		       .interrupt_taken(interrupt_taken),
+                       .htif_reset(htif_reset),
                        .htif_pcr_req_valid(htif_pcr_req_valid),
                        .htif_pcr_req_ready(htif_pcr_req_ready),
                        .htif_pcr_req_rw(htif_pcr_req_rw),
@@ -352,7 +365,6 @@ module vscale_pipeline(
                        .htif_pcr_resp_valid(htif_pcr_resp_valid),
                        .htif_pcr_resp_ready(htif_pcr_resp_ready),
                        .htif_pcr_resp_data(htif_pcr_resp_data)
-							  */
                        );
 
 endmodule // vscale_pipeline
