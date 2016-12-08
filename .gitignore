@@ -95,3 +95,14 @@ ENV/
 dep/
 objecs/
 library/
+*.elf
+*.lst
+*.mem
+executables/
+TAGS
+work/
+*.wlf
+transcript
+*.tmp
+*.srec
+*.gtkw

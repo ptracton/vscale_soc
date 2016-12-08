@@ -41,6 +41,7 @@
 `include "rv32_opcodes.vh"
 `include "vscale_csr_addr_map.vh"
 `include "vscale_md_constants.vh"
+`include "vscale_platform_constants.vh"
 module wb_vscale (
                   input                   clk,
                   input                   rst,
@@ -266,7 +267,7 @@ module wb_vscale (
                                 .imem_rdata(instruction),
                                 .imem_badmem_e(iwbm_err_i), 
 	  
-                                .replay_IF_out(replay_IF_out),
+                                //.replay_IF_out(replay_IF_out),
 
                                 .dmem_wait(dmem_wait), 
                                 .dmem_en(dmem_request), 

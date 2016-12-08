@@ -96,11 +96,10 @@ if __name__ == "__main__":
         executable = json_data['flow'][flow_steps[step]]['executable']
         arguments = string.Template(
             json_data['flow'][flow_steps[step]]['arguments'])
-        arguments_str = arguments.safe_substitute(simulation=args.simulation,
-                                                  application=args.application,
-                                                  cpu=args.cpu)
+        arguments_str = arguments.safe_substitute(simulation=args.simulation)
         if args.debug:
             print(executable)
+            print(arguments_str)
         if (arguments is None):
             command = executable
         else:

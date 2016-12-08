@@ -99,3 +99,5 @@ clean:
 	$(RM) -rf $(OBJ_DIR) $(ELF_FILE) $(LIST_FILE) $(HEX_FILE) $(SREC_FILE) $(BIN_FILE)
 	$(RM) -rf $(DEP_DIR) $(SREC_FILE) TAGS $(MEM_FILE)
 	find . -name "*~" | xargs rm -f 
+	$(RM) -rf a.out $(TARGET).vcd $(TARGET).log
+	$(RM) -rf work
