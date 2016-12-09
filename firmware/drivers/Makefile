@@ -23,7 +23,7 @@ TAG_FILES        += $(SRC_DIR)/*.c $(INC_DIR)/*.h
 ##
 ## Options passed to the C compiler
 ##
-CFLAGS	+= -Os -g  $(CINCLUDES)
+CFLAGS	+= -Os -g  $(CINCLUDES) -m32
 
 ##
 ## The list of steps to build the image

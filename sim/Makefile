@@ -27,12 +27,12 @@ TAG_FILES        += *.c $(FIRMWARE_DIR)/drivers/src/*.c $(FIRMWARE_DIR)/drivers/
 ##
 ## Options passed to the C compiler
 ##
-CFLAGS	+= -Os -g  $(CINCLUDES)
+CFLAGS	+= -Os -g  $(CINCLUDES) -m32
 
 ##
 ## Flags for linking image together
 ##
-LDFLAGS		+= -nostdlib -T$(LDSCRIPT) -L $(FIRMWARE_DIR)/drivers/library -ldrivers
+LDFLAGS		+= -Wl,-estart -nostdlib -T$(LDSCRIPT) -L $(FIRMWARE_DIR)/drivers/library -ldrivers
 
 ##
 ## The directories to make for this build.
@@ -63,7 +63,7 @@ $(ELF_FILE): $(ELF_REQUIREMENTS)
 	@echo "Build Device Drivers"
 	@$(MAKE) -C $(FIRMWARE_DIR)/drivers
 	@echo "Linking $(ELF_FILE)"
-	@$(LD) -o $(ELF_FILE) $(ELF_REQUIREMENTS) $(LDFLAGS)
+	$(LD) -o $(ELF_FILE) $(ELF_REQUIREMENTS) $(LDFLAGS)
 
 $(LIST_FILE):$(ELF_FILE)
 	@echo "Creating $(LIST_FILE)"

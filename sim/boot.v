@@ -27,7 +27,7 @@ module test_case (/*AUTOARG*/ ) ;
 
    initial begin
       $display("Boot Case");
-      #10000;
+      #1000;
       `TEST_COMPLETE;      
    end
    

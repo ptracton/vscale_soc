@@ -90,7 +90,6 @@ if __name__ == "__main__":
     flow_steps = json_data['flow_steps']
     if args.debug:
         print(flow_steps)
-
     for step in sorted(flow_steps.keys()):
         print("\nRunning Step: %s " % step)
         executable = json_data['flow'][flow_steps[step]]['executable']

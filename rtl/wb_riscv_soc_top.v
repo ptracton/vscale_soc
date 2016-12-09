@@ -26,10 +26,13 @@ module wb_riscv_soc_top (/*AUTOARG*/
    //
    // Wires 
    //
-   `include "bus_matrix.vh"
    wire   wb_clk_i;
    wire   wb_rst_i;
-
+   wire   wb_clk = wb_clk_i;
+   wire   wb_rst = wb_rst_i;   
+   `include "bus_matrix.vh"
+  
+   
    
    //
    // Clock and Reset Control
@@ -47,8 +50,8 @@ module wb_riscv_soc_top (/*AUTOARG*/
    // Wishbone RiscV VScale CPU
    //
    wire [23:0] interrupts = 'b0;
-   assign wb_s2m_dwmb_err = 0;
-   assign wb_s2m_iwmb_err = 0;
+  // assign wb_s2m_dwmb_err = 0;
+   //assign wb_s2m_iwmb_err = 0;
 
    wb_vscale riscv_cpu(
                        .clk(wb_clk_i),
